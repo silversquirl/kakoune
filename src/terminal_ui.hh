@@ -56,7 +56,10 @@ public:
     DisplayCoord dimensions() override;
     void set_on_key(OnKeyCallback callback) override;
     void set_on_paste(OnPasteCallback callback) override;
+    void set_on_clipboard(OnPasteCallback callback) override;
     void set_ui_options(const Options& options) override;
+
+    void clipboard_update(StringView content) override;
 
     static void setup_terminal();
     static void restore_terminal();
@@ -140,6 +143,10 @@ private:
     OnKeyCallback m_on_key;
     OnPasteCallback m_on_paste;
     Optional<String> m_paste_buffer;
+
+    void clipboard_query();
+
+    OnPasteCallback m_on_clipboard;
 
     bool m_status_on_top = false;
     ConstArrayView<StringView> m_assistant;

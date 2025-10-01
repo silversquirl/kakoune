@@ -79,6 +79,9 @@ public:
 
     int pid() const { return m_pid; }
 
+    void set_clipboard(String value);
+    String& clipboard() { return m_clipboard; }
+
 private:
     void on_option_changed(const Option& option) override;
 
@@ -92,6 +95,8 @@ private:
     UniquePtr<Window> m_window;
 
     const int m_pid;
+
+    String m_clipboard;
 
     OnExitCallback m_on_exit;
 
