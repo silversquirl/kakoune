@@ -844,6 +844,19 @@ Optional<Key> TerminalUI::get_next_key()
                 return Key{Key::Modifiers::Shift, Key::F11 + params[0][0] - 23}; // rxvt style
             }
             return {};
+        case 'c':
+            if (private_mode == '?' and params[0][0] >= 12)
+            {
+                m_clipboard.supported = false;
+                for (size_t i = 0; i < 16 and params[i][0] != 0; i++) {
+                    if (params[i][0] == 52) {
+                        m_clipboard.supported = true;
+                    }
+                }
+                clipboard_query();
+                return Key{Key::Invalid};
+            }
+            return {};
         case 'A': return masked_key(Key::Up);
         case 'B': return masked_key(Key::Down);
         case 'C': return masked_key(Key::Right);
@@ -1650,6 +1663,15 @@ void TerminalUI::set_ui_options(const Options& options)
         m_synchronized.queried = true;
     }
 
+    auto clipboard = find("terminal_clipboard").map(to_bool);
+    m_clipboard.set = (bool)clipboard;
+    m_clipboard.requested = clipboard.value_or(false);
+    clipboard_query();
+    if (not m_clipboard.queried and not m_clipboard.set) {
+        write(STDOUT_FILENO, "\033[c");
+        m_clipboard.queried = true;
+    }
+
     m_shift_function_key = find("terminal_shift_function_key").map(str_to_int_ifp).value_or(default_shift_function_key);
 
     enable_mouse(find("terminal_enable_mouse").map(to_bool).value_or(true));
@@ -1670,10 +1692,13 @@ void TerminalUI::set_ui_options(const Options& options)
 
 void TerminalUI::clipboard_query()
 {
+    if (!m_clipboard) return;
     write(STDOUT_FILENO, "\033]52;c;?\033\\");
 }
 
 void TerminalUI::clipboard_update(StringView content) {
+    if (!m_clipboard) return;
+
     Writer writer{STDOUT_FILENO};
     writer.write("\033]52;c;");
 

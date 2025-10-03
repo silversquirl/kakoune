@@ -163,7 +163,7 @@ private:
     bool m_set_title = true;
     Optional<String> m_title;
 
-    struct Synchronized
+    struct DetectableFeature
     {
         bool queried : 1;
         bool supported : 1;
@@ -171,7 +171,10 @@ private:
         bool requested : 1;
 
         explicit operator bool() const { return set ? requested : supported; }
-    } m_synchronized{};
+    };
+
+    DetectableFeature m_synchronized{};
+    DetectableFeature m_clipboard{};
 
     Codepoint m_padding_char = '~';
     bool m_padding_fill = false;
