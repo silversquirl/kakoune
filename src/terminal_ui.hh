@@ -146,7 +146,21 @@ private:
 
     void clipboard_query();
 
+    bool m_clipboard_queried = false;
     OnPasteCallback m_on_clipboard;
+
+    struct DetectableFeature
+    {
+        bool queried : 1;
+        bool supported : 1;
+        bool set : 1;
+        bool requested : 1;
+
+        explicit operator bool() const { return set ? requested : supported; }
+    };
+
+    DetectableFeature m_clipboard{};
+    DetectableFeature m_synchronized{};
 
     bool m_status_on_top = false;
     ConstArrayView<StringView> m_assistant;
@@ -162,19 +176,6 @@ private:
 
     bool m_set_title = true;
     Optional<String> m_title;
-
-    struct DetectableFeature
-    {
-        bool queried : 1;
-        bool supported : 1;
-        bool set : 1;
-        bool requested : 1;
-
-        explicit operator bool() const { return set ? requested : supported; }
-    };
-
-    DetectableFeature m_synchronized{};
-    DetectableFeature m_clipboard{};
 
     Codepoint m_padding_char = '~';
     bool m_padding_fill = false;

@@ -1,6 +1,5 @@
 #include "terminal_ui.hh"
 
-#include "buffer_utils.hh"
 #include "display_buffer.hh"
 #include "event_manager.hh"
 #include "exception.hh"
@@ -1032,6 +1031,7 @@ Optional<Key> TerminalUI::get_next_key()
             if (c == '\033' and get_char() != '\\')
                 return {};
 
+            m_clipboard_queried = false;
             m_on_clipboard(clipboard);
             return Key{Key::Invalid};
         }
@@ -1692,12 +1692,15 @@ void TerminalUI::set_ui_options(const Options& options)
 
 void TerminalUI::clipboard_query()
 {
-    if (!m_clipboard) return;
+    if (not m_clipboard) return;
+    if (m_clipboard_queried) return; // query already in progress
+
     write(STDOUT_FILENO, "\033]52;c;?\033\\");
+    m_clipboard_queried = true;
 }
 
 void TerminalUI::clipboard_update(StringView content) {
-    if (!m_clipboard) return;
+    if (not m_clipboard) return;
 
     Writer writer{STDOUT_FILENO};
     writer.write("\033]52;c;");
