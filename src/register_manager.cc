@@ -73,6 +73,7 @@ const String& HistoryRegister::get_main(const Context&, size_t)
 static const HashMap<StringView, Codepoint> reg_names {
     { "slash", '/' },
     { "dquote", '"' },
+    { "quote", '\'' },
     { "pipe", '|' },
     { "caret", '^' },
     { "arobase", '@' },

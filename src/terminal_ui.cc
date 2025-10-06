@@ -9,6 +9,7 @@
 #include "format.hh"
 #include "diff.hh"
 #include "string_utils.hh"
+#include "unicode.hh"
 
 #include <algorithm>
 
@@ -468,6 +469,7 @@ TerminalUI::TerminalUI()
     set_signal_handler(SIGTSTP, [](int){ TerminalUI::instance().suspend(); });
 
     check_resize(true);
+    clipboard_query();
     redraw(false);
 }
 
@@ -557,6 +559,8 @@ void TerminalUI::set_cursor(CursorMode mode, DisplayCoord coord)
 
 void TerminalUI::refresh(bool force)
 {
+    if (force)
+        clipboard_query();
     if (m_dirty or force)
         redraw(force);
     m_dirty = false;
@@ -627,7 +631,7 @@ void TerminalUI::draw_status(const DisplayLine& status_line,
         }
         else
             write_escaped(*m_title);
-        writer.write(" - Kakoune\007");
+        writer.write(" - Kakoune\033\\");
     }
 
     m_dirty = true;
@@ -674,6 +678,8 @@ void TerminalUI::check_resize(bool force)
     set_resize_pending();
 }
 
+constexpr auto base64_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
 Optional<Key> TerminalUI::get_next_key()
 {
     if (terminal_hungup)
@@ -694,8 +700,8 @@ Optional<Key> TerminalUI::get_next_key()
         return resize(dimensions());
     }
 
-    static auto get_char = []() -> Optional<unsigned char> {
-        if (not fd_readable(STDIN_FILENO))
+    static auto get_char = [](std::chrono::nanoseconds timeout = {}) -> Optional<unsigned char> {
+        if (not fd_readable(STDIN_FILENO, timeout))
             return {};
 
         if (unsigned char c = 0; read(STDIN_FILENO, &c, 1) == 1)
@@ -837,6 +843,19 @@ Optional<Key> TerminalUI::get_next_key()
                 return Key{Key::Modifiers::Shift, Key::F11 + params[0][0] - 23}; // rxvt style
             }
             return {};
+        case 'c':
+            if (private_mode == '?' and params[0][0] >= 12)
+            {
+                m_clipboard.supported = false;
+                for (size_t i = 0; i < 16 and params[i][0] != 0; i++) {
+                    if (params[i][0] == 52) {
+                        m_clipboard.supported = true;
+                    }
+                }
+                clipboard_query();
+                return Key{Key::Invalid};
+            }
+            return {};
         case 'A': return masked_key(Key::Up);
         case 'B': return masked_key(Key::Down);
         case 'C': return masked_key(Key::Right);
@@ -925,7 +944,9 @@ Optional<Key> TerminalUI::get_next_key()
             return masked_key(key, convert(static_cast<Codepoint>(params[0][1])));
         }
         case 'Z': return shift(Key::Tab);
-        case 'I': return {Key::FocusIn};
+        case 'I':
+            clipboard_query();
+            return {Key::FocusIn};
         case 'O': return {Key::FocusOut};
         case 'M': case 'm':
             const bool sgr = private_mode == '<';
@@ -951,6 +972,68 @@ Optional<Key> TerminalUI::get_next_key()
             case 65: return mouse_scroll(mod, coord, true);
             }
             return Key{Key::Modifiers::MousePos, coord};
+        }
+        return {};
+    };
+
+    static auto parse_osc = [this]() -> Optional<Key> {
+        int command = 0;
+        auto c = get_char();
+        while (c and *c >= '0' and *c <= '9') {
+            command = (command * 10) + (*c - '0');
+            c = get_char();
+        }
+        if (c != ';')
+            return {};
+
+        switch (command)
+        {
+        case 52:
+            std::chrono::milliseconds timeout(10);
+            if (get_char(timeout) != 'c')
+                return {};
+            if (get_char(timeout) != ';')
+                return {};
+
+            String clipboard;
+            c = get_char(timeout);
+            while (c and *c != '\033' and *c != '\007') {
+                unsigned char sixbits[4];
+                int i = 0;
+                for (; i < sizeof sixbits; i++)
+                {
+                    if (not c)
+                        return {};
+                    if (*c == '=')
+                        break;
+
+                    const auto it = strchr(base64_alphabet, *c);
+                    if (not it)
+                        return {};
+
+                    sixbits[i] = it - base64_alphabet;
+                    c = get_char(timeout);
+                }
+                if (i <= 1)
+                    return {};
+
+                while (c and *c == '=')
+                    c = get_char(timeout);
+
+                if (i > 1)
+                    clipboard.push_back(sixbits[0] << 2 | sixbits[1] >> 4);
+                if (i > 2)
+                    clipboard.push_back(sixbits[1] << 4 | sixbits[2] >> 2);
+                if (i > 3)
+                    clipboard.push_back(sixbits[2] << 6 | sixbits[3]);
+            }
+
+            if (c == '\033' and get_char() != '\\')
+                return {};
+
+            m_clipboard_queried = false;
+            m_on_clipboard(clipboard);
+            return Key{Key::Invalid};
         }
         return {};
     };
@@ -1006,6 +1089,8 @@ Optional<Key> TerminalUI::get_next_key()
         {
             if (*next == '[') // potential CSI
                 return parse_csi().value_or(alt('['));
+            if (*next == ']') // potential OSC
+                return parse_osc().value_or(alt(']'));
             if (*next == 'O') // potential SS3
                 return parse_ss3().value_or(alt('O'));
             return alt(parse_key(*next));
@@ -1472,6 +1557,11 @@ void TerminalUI::set_on_paste(OnPasteCallback callback)
     m_on_paste = std::move(callback);
 }
 
+void TerminalUI::set_on_clipboard(OnPasteCallback callback)
+{
+    m_on_clipboard = std::move(callback);
+}
+
 DisplayCoord TerminalUI::dimensions()
 {
     return m_dimensions;
@@ -1573,6 +1663,15 @@ void TerminalUI::set_ui_options(const Options& options)
         m_synchronized.queried = true;
     }
 
+    auto clipboard = find("terminal_clipboard").map(to_bool);
+    m_clipboard.set = (bool)clipboard;
+    m_clipboard.requested = clipboard.value_or(false);
+    clipboard_query();
+    if (not m_clipboard.queried and not m_clipboard.set) {
+        write(STDOUT_FILENO, "\033[c");
+        m_clipboard.queried = true;
+    }
+
     m_shift_function_key = find("terminal_shift_function_key").map(str_to_int_ifp).value_or(default_shift_function_key);
 
     enable_mouse(find("terminal_enable_mouse").map(to_bool).value_or(true));
@@ -1580,7 +1679,7 @@ void TerminalUI::set_ui_options(const Options& options)
 
     m_padding_char = find("terminal_padding_char").map([](StringView s) { return s.column_length() < 1 ? ' ' : s[0_char]; }).value_or(Codepoint{'~'});
     m_padding_fill = find("terminal_padding_fill").map(to_bool).value_or(false);
-    
+
     bool new_cursor_native = find("terminal_cursor_native").map(to_bool).value_or(false);
     if (new_cursor_native != m_cursor_native)
     {
@@ -1589,6 +1688,56 @@ void TerminalUI::set_ui_options(const Options& options)
     }
 
     m_info_max_width = find("terminal_info_max_width").map(str_to_int_ifp).value_or(0);
+}
+
+void TerminalUI::clipboard_query()
+{
+    if (not m_clipboard) return;
+    if (m_clipboard_queried) return; // query already in progress
+
+    write(STDOUT_FILENO, "\033]52;c;?\033\\");
+    m_clipboard_queried = true;
+}
+
+void TerminalUI::clipboard_update(StringView content) {
+    if (not m_clipboard) return;
+
+    Writer writer{STDOUT_FILENO};
+    writer.write("\033]52;c;");
+
+    auto write_b64_chunk = [&writer](StringView str) {
+        unsigned char sixbits[4] = {0};
+        switch ((size_t)str.length())
+        {
+        case 3:
+            sixbits[3] |= str[2] & 63;
+            sixbits[2] |= str[2] >> 6;
+            [[fallthrough]];
+        case 2:
+            sixbits[2] |= (str[1] & 15) << 2;
+            sixbits[1] |= str[1] >> 4;
+            [[fallthrough]];
+        case 1:
+            sixbits[1] |= (str[0] & 3) << 4;
+            sixbits[0] |= str[0] >> 2;
+            break;
+        case 0:
+            return;
+        default:
+            kak_assert(false);
+        }
+
+        for (auto sixbit : sixbits)
+            writer.write(base64_alphabet[sixbit]);
+    };
+
+    auto it = content.begin(), end = content.end();
+    for (; it + 3 < end; it += 3) {
+        write_b64_chunk(StringView(it, 3));
+    }
+    write_b64_chunk(StringView{ it, end });
+
+    writer.write("\033\\");
 }
 
 }

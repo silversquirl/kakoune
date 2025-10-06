@@ -47,7 +47,10 @@ public:
     DisplayCoord dimensions() override;
     void set_on_key(OnKeyCallback callback) override;
     void set_on_paste(OnPasteCallback callback) override;
+    void set_on_clipboard(OnPasteCallback callback) override;
     void set_ui_options(const Options& options) override;
+
+    void clipboard_update(StringView content) override;
 
 private:
     void parse_requests(EventMode mode);
@@ -56,6 +59,7 @@ private:
     FDWatcher m_stdin_watcher;
     OnKeyCallback m_on_key;
     OnPasteCallback m_on_paste;
+    OnPasteCallback m_on_clipboard;
     Vector<Key, MemoryDomain::Client> m_pending_keys;
     DisplayCoord m_dimensions;
     String m_requests;
