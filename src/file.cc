@@ -143,34 +143,24 @@ StringView homedir()
 
 bool fd_readable(int fd)
 {
-    return fd_readable(fd, {});
-}
-bool fd_readable(int fd, std::chrono::nanoseconds timeout)
-{
     kak_assert(fd >= 0);
-    fd_set rfds;
+    fd_set  rfds;
     FD_ZERO(&rfds);
     FD_SET(fd, &rfds);
 
-    const auto secs = std::chrono::duration_cast<std::chrono::seconds>(timeout);
-    timespec ts{secs.count(), (timeout - secs).count()};
-    return pselect(fd+1, &rfds, nullptr, nullptr, &ts, nullptr) == 1;
+    timeval tv{0,0};
+    return select(fd+1, &rfds, nullptr, nullptr, &tv) == 1;
 }
 
 bool fd_writable(int fd)
 {
-    return fd_writable(fd, {});
-}
-bool fd_writable(int fd, std::chrono::nanoseconds timeout)
-{
     kak_assert(fd >= 0);
-    fd_set wfds;
+    fd_set  wfds;
     FD_ZERO(&wfds);
     FD_SET(fd, &wfds);
 
-    const auto secs = std::chrono::duration_cast<std::chrono::seconds>(timeout);
-    timespec ts{secs.count(), (timeout - secs).count()};
-    return pselect(fd+1, nullptr, &wfds, nullptr, &ts, nullptr) == 1;
+    timeval tv{0,0};
+    return select(fd+1, nullptr, &wfds, nullptr, &tv) == 1;
 }
 
 String read_fd(int fd, bool text)

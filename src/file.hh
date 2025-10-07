@@ -10,7 +10,6 @@
 #include "units.hh"
 #include "utils.hh"
 
-#include <chrono>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <cstring>
@@ -40,9 +39,7 @@ std::pair<StringView, StringView> split_path(StringView path);
 String get_kak_binary_path();
 
 bool fd_readable(int fd);
-bool fd_readable(int fd, std::chrono::nanoseconds timeout);
 bool fd_writable(int fd);
-bool fd_writable(int fd, std::chrono::nanoseconds timeout);
 String read_fd(int fd, bool text = false);
 String read_file(StringView filename, bool text = false);
 template<bool force_blocking = false>

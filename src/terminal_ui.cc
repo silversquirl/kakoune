@@ -1,5 +1,6 @@
 #include "terminal_ui.hh"
 
+#include "buffer_utils.hh"
 #include "display_buffer.hh"
 #include "event_manager.hh"
 #include "exception.hh"
@@ -41,6 +42,44 @@ static String fix_atom_text(StringView str)
     }
     res += StringView{pos, str.end()};
     return res;
+}
+
+constexpr auto base64_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+static StringView decode_base64_inplace(String& buffer) {
+    auto wit = buffer.begin();
+    auto rit = buffer.begin();
+    auto end = buffer.end();
+    while (rit != end) {
+        unsigned char sixbits[4];
+        int i = 0;
+        for (; i < sizeof sixbits; i++, rit++)
+        {
+            if (rit == end)
+                throw;
+            if (*rit == '=')
+                break;
+
+            const auto digit = strchr(base64_alphabet, *rit);
+            if (not digit)
+                throw;
+
+            sixbits[i] = digit - base64_alphabet;
+        }
+        if (i <= 1)
+            throw;
+
+        while (rit != end and *rit == '=')
+            rit++;
+
+        if (i > 1)
+            *wit++ = sixbits[0] << 2 | sixbits[1] >> 4;
+        if (i > 2)
+            *wit++ = sixbits[1] << 4 | sixbits[2] >> 2;
+        if (i > 3)
+            *wit++ = sixbits[2] << 6 | sixbits[3];
+    }
+    return {buffer.begin(), wit};
 }
 
 struct TerminalUI::Window::Line
@@ -678,7 +717,6 @@ void TerminalUI::check_resize(bool force)
     set_resize_pending();
 }
 
-constexpr auto base64_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 Optional<Key> TerminalUI::get_next_key()
 {
@@ -700,8 +738,8 @@ Optional<Key> TerminalUI::get_next_key()
         return resize(dimensions());
     }
 
-    static auto get_char = [](std::chrono::nanoseconds timeout = {}) -> Optional<unsigned char> {
-        if (not fd_readable(STDIN_FILENO, timeout))
+    static auto get_char = []() -> Optional<unsigned char> {
+        if (not fd_readable(STDIN_FILENO))
             return {};
 
         if (unsigned char c = 0; read(STDIN_FILENO, &c, 1) == 1)
@@ -985,57 +1023,12 @@ Optional<Key> TerminalUI::get_next_key()
         }
         if (c != ';')
             return {};
+        if (command != 52)
+            return {};
+        while ((c = get_char()) and c != ';');
 
-        switch (command)
-        {
-        case 52:
-            std::chrono::milliseconds timeout(10);
-            if (get_char(timeout) != 'c')
-                return {};
-            if (get_char(timeout) != ';')
-                return {};
-
-            String clipboard;
-            c = get_char(timeout);
-            while (c and *c != '\033' and *c != '\007') {
-                unsigned char sixbits[4];
-                int i = 0;
-                for (; i < sizeof sixbits; i++)
-                {
-                    if (not c)
-                        return {};
-                    if (*c == '=')
-                        break;
-
-                    const auto it = strchr(base64_alphabet, *c);
-                    if (not it)
-                        return {};
-
-                    sixbits[i] = it - base64_alphabet;
-                    c = get_char(timeout);
-                }
-                if (i <= 1)
-                    return {};
-
-                while (c and *c == '=')
-                    c = get_char(timeout);
-
-                if (i > 1)
-                    clipboard.push_back(sixbits[0] << 2 | sixbits[1] >> 4);
-                if (i > 2)
-                    clipboard.push_back(sixbits[1] << 4 | sixbits[2] >> 2);
-                if (i > 3)
-                    clipboard.push_back(sixbits[2] << 6 | sixbits[3]);
-            }
-
-            if (c == '\033' and get_char() != '\\')
-                return {};
-
-            m_clipboard_queried = false;
-            m_on_clipboard(clipboard);
-            return Key{Key::Invalid};
-        }
-        return {};
+        m_clipboard_buffer = String{};
+        return Key{Key::Invalid};
     };
 
     static auto parse_ss3 = []() -> Optional<Key> {
@@ -1093,10 +1086,25 @@ Optional<Key> TerminalUI::get_next_key()
                 return parse_osc().value_or(alt(']'));
             if (*next == 'O') // potential SS3
                 return parse_ss3().value_or(alt('O'));
+            if (m_clipboard_buffer and *next == '\\')
+            {
+                auto decoded = decode_base64_inplace(*m_clipboard_buffer);
+                m_clipboard_queried = false;
+                m_on_clipboard(decoded);
+                m_clipboard_buffer.reset();
+                return Key{Key::Invalid};
+            }
             return alt(parse_key(*next));
         }
         else if (not m_paste_buffer)
             return Key{Key::Escape};
+    }
+
+
+    if (m_clipboard_buffer)
+    {
+        m_clipboard_buffer->push_back(*c);
+        return Key{Key::Invalid};
     }
 
     if (m_paste_buffer)
