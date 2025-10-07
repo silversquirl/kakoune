@@ -147,6 +147,7 @@ private:
     void clipboard_query();
 
     bool m_clipboard_queried = false;
+    Optional<String> m_clipboard_buffer;
     OnPasteCallback m_on_clipboard;
 
     struct DetectableFeature
