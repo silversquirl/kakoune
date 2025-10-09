@@ -1645,6 +1645,10 @@ HighlightPass parse_passes(StringView str)
             passes |= HighlightPass::Colorize;
         else if (pass == "move")
             passes |= HighlightPass::Move;
+        else if (pass == "region")
+            passes |= HighlightPass::Region;
+        else if (pass == "replace")
+            passes |= HighlightPass::Replace;
         else if (pass == "wrap")
             passes |= HighlightPass::Wrap;
         else
@@ -1660,7 +1664,7 @@ const HighlighterDesc higlighter_group_desc = {
     "Parameters: [-passes <passes>]\n"
     "Creates a group that can contain other highlighters",
     { {
-        { "passes", { ArgCompleter{}, "flags(colorize|move|wrap) "
+        { "passes", { ArgCompleter{}, "flags(colorize|move|region|replace|wrap) "
                                        "kind of highlighters can be put in the group "
                                        "(default colorize)" } } },
         ParameterDesc::Flags::SwitchesOnlyAtStart, 0, 0
@@ -1678,7 +1682,7 @@ const HighlighterDesc ref_desc = {
     "Parameters: [-passes <passes>] <path>\n"
     "Reference the highlighter at <path> in shared highlighters",
     { {
-        { "passes", { ArgCompleter{}, "flags(colorize|move|wrap) "
+        { "passes", { ArgCompleter{}, "flags(colorize|move|region|replace|wrap) "
                                       "kind of highlighters that can be referenced "
                                       "(default colorize)" } } },
         ParameterDesc::Flags::SwitchesOnlyAtStart, 1, 1
@@ -2028,7 +2032,7 @@ private:
         RegionHighlighter(UniquePtr<Highlighter>&& delegate,
                           String begin, String end, String recurse,
                           bool match_capture)
-            : Highlighter{delegate->passes()},
+            : Highlighter{delegate->passes() | HighlightPass::Region},
               m_delegate{std::move(delegate)},
               m_begin{std::move(begin)}, m_end{std::move(end)}, m_recurse{std::move(recurse)},
               m_match_capture{match_capture}

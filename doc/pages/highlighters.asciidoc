@@ -210,7 +210,7 @@ name. Possible values for this option can be one or several (separated
 with a pipe sign) of *colorize*, *move* or *wrap* (default: *colorize*):
 
 --------------------------------------------------------------
-add-highlighter window/<name> group -passes colorize|move|wrap
+add-highlighter window/<name> group -passes colorize|move|region|replace|wrap
 --------------------------------------------------------------
 
 == Regions highlighters

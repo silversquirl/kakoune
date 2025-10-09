@@ -25,8 +25,9 @@ enum class HighlightPass
     Wrap = 1 << 1,
     Move = 1 << 2,
     Colorize = 1 << 3,
+    Region = 1 << 4,
 
-    All = Replace | Wrap | Move | Colorize,
+    All = Replace | Wrap | Move | Colorize | Region,
 };
 constexpr bool with_bit_ops(Meta::Type<HighlightPass>) { return true; }
 

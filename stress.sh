@@ -1,10 +1,22 @@
-((
-((
-(
-([
-{
->
-<
+$hello
+$ hello
+$@
+${hi}
+
+if true; then
+fi
+
+if ((a + b > 0)); then
+    :
+fi
+
+while ((a + b < 0)); do
+    :
+done
+
+for ((a + b)); do
+    :
+done
 
 ${a#b}
 ${a#$b}
@@ -18,18 +30,13 @@ ${a#${b}/c}
 "$((a + b))"
 "$(echo 'hello ${f}' >/dev/null)"
 
-if ((a + b > 0)); then
-    :
-fi
-
-while ((a + b < 0); do
-    :
-done
-
-for ((a + b)); do
-    :
-done
-
+(( ))
+(( ))
+(
+([
+{
+>
+<
 
 declare -A colors icons # provided by ./bash.nix
 

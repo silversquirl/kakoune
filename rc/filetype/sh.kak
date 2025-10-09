@@ -22,18 +22,14 @@ provide-module sh %§
 
 add-highlighter shared/sh regions
 add-highlighter shared/sh/code default-region group
-add-highlighter shared/sh/arithmetic region -recurse \(.*?\( \(\( \)\) group
-add-highlighter shared/sh/double_string region %{(?<!\\)(?:\\\\)*\K"} %{(?<!\\)(?:\\\\)*"} group
+add-highlighter shared/sh/arithmetic region -recurse \(.*?\( \(\( \)\) regions
+add-highlighter shared/sh/double_string region %{(?<!\\)(?:\\\\)*\K"} %{(?<!\\)(?:\\\\)*"} regions
 add-highlighter shared/sh/single_string region %{(?<!\\)(?:\\\\)*\K'} %{'} fill string
-add-highlighter shared/sh/expansion group
+add-highlighter shared/sh/parameter_expansion region -recurse (?<!\\)(?:\\\\)*\K\$\{ (?<!\\)(?:\\\\)*\K\$\{ \} regions
+add-highlighter shared/sh/simple_expansion region (?<!\\)(?:\\\\)*\K\$(\w+|[#@?$!*-]) \b fill value # TODO this is kinda gross
+add-highlighter shared/sh/command_substitution region -recurse (?<!\\)(?:\\\\)*\K\( (?<!\\)(?:\\\\)*\K\$\( \) ref shared/sh
 add-highlighter shared/sh/comment region (?<!\\)(?:\\\\)*(?:^|\h)\K# '$' fill comment
 add-highlighter shared/sh/heredoc region -match-capture '<<-?\h*''?(\w+)''?' '^\t*(\w+)$' fill string
-
-add-highlighter shared/sh/arithmetic/expansion ref sh/expansion
-add-highlighter shared/sh/double_string/fill fill string
-
-add-highlighter shared/sh/expansion/simple regex (?<!\\)(?:\\\\)*\K\$(\w+|#|@|\?|\$|!|-|\*) 0:value
-add-highlighter shared/sh/expansion/braced region -recurse (?<!\\)(?:\\\\)*\K\$\{ (?<!\\)(?:\\\\)*\K\$\{ \} group
 
 evaluate-commands %sh{
     # Grammar
@@ -66,8 +62,17 @@ add-highlighter shared/sh/code/variable regex ((?<![-:])\b\w+)= 1:variable
 add-highlighter shared/sh/code/alias regex \balias(\h+[-+]\w)*\h+([\w-.]+)= 2:variable
 add-highlighter shared/sh/code/function regex ^\h*(\S+(?<!=))\h*\(\) 1:function
 
-add-highlighter shared/sh/code/unscoped_expansion regex (?<!\\)(?:\\\\)*\K\$(\w+|#|@|\?|\$|!|-|\*) 0:value
-add-highlighter shared/sh/double_string/expansion regex (?<!\\)(?:\\\\)*\K\$(\w+|#|@|\?|\$|!|-|\*|\{.+?\}) 0:value
+add-highlighter shared/sh/arithmetic/parameter_expansion ref expansion
+add-highlighter shared/sh/arithmetic/simple_expansion ref sh/simple_expansion
+add-highlighter shared/sh/arithmetic/default default-region group
+add-highlighter shared/sh/arithmetic/default/operators regex [-+!*/=] 0:operator
+
+add-highlighter shared/sh/double_string/fill default-region fill string
+add-highlighter shared/sh/double_string/parameter_expansion ref shared/sh/parameter_expansion
+add-highlighter shared/sh/double_string/simple_expansion ref shared/sh/simple_expansion
+add-highlighter shared/sh/double_string/command_substitution ref shared/sh/command_substitution
+
+add-highlighter shared/sh/parameter_expansion/default default-region fill value
 
 # Commands
 # ‾‾‾‾‾‾‾‾
