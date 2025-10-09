@@ -79,7 +79,7 @@ may have special effects when written to.
 
 *'* (quote)::
     system clipboard register, only synchronized if the `terminal_clipboard`
-    UI option is enabled (see <<options#ui-options `:doc options ui-options`>>).
+    UI option is enabled (see <<options#ui-options, `:doc options ui-options`>>).
 
 *:* (colon)::
     prompt history register holding the last 100 commands entered at the
