@@ -22,7 +22,7 @@ provide-module sh %§
 
 evaluate-commands %sh[
     # Helper functions
-    join() { sep=$2; eval set -- $1; IFS="$sep"; echo "$*"; }
+    join() { IFS="$1"; shift; echo "$*"; }
 
     parent=shared
     hl() {
@@ -55,47 +55,45 @@ evaluate-commands %sh[
 
     expansion() {
         hl simple_expansion region "$unescaped\K\\\$(\w+|[#@?\$!*-])" '\b' fill value # TODO this is kinda gross
-        hl command_substitution region -recurse "$unescaped\K\(" "$unescaped\K\\\$\(" '\)' ref shared/sh
+        hl command_substitution region -recurse "$unescaped\K\(" "$unescaped\K\\\$\(" '\)' ref sh
 
         push parameter_expansion region -recurse "$unescaped\K\\\$\{" "$unescaped\K\\\$\{" '\}' regions
         hl default default-region fill value
+        hl operators regex '[#%/!]' 0:operator
         pop
     }
 
     push sh regions
+        push code default-region group
+            hl operators regex '[[\](){}<>&|!*]' 0:operator
+            hl variable regex '((?<![-:])\b\w+)=' 1:variable
+            hl alias regex '\balias(\h+[-+]\w)*\h+([\w-.]+)=' 2:variable
+            hl function regex '^\h*(\S+(?<!=))\h*\(\)' 1:function
+            hl keywords regex "(?<!-)\b($(join '|' $keywords))\b(?!-)" 0:keyword
+            hl builtins regex "(?<!-)\b($(join '|' $builtins))\b(?!-)" 0:builtin
+        pop
 
-    push code default-region group
-    hl operators regex '[[\](){}<>&|!*]' 0:operator
-    hl variable regex '((?<![-:])\b\w+)=' 1:variable
-    hl alias regex '\balias(\h+[-+]\w)*\h+([\w-.]+)=' 2:variable
-    hl function regex '^\h*(\S+(?<!=))\h*\(\)' 1:function
-    hl keywords regex "(?<!-)\b($(join "${keywords}" '|'))\b(?!-)" 0:keyword
-    hl builtins regex "(?<!-)\b($(join "${builtins}" '|'))\b(?!-)" 0:builtin
-    pop
+        expansion
 
-    push arithmetic region -recurse '\(.*?\(' '\(\(' '\)\)' regions
-    hl parameter_expansion ref expansion
-    hl simple_expansion ref sh/simple_expansion
-    push default default-region group
-    hl operators regex '[-+!*/=]' 0:operator
-    pop default
-    pop
+        push arithmetic region -recurse '\(.*?\(' '\(\(' '\)\)' regions
+            push default default-region group
+                hl operators regex '[-+!*/=]' 0:operator
+            pop default
+            expansion
+        pop
 
-    push double_string region "%{$unescaped\K\"}" "%{$unescaped\"}" regions
-    hl fill default-region fill string
-    hl parameter_expansion ref shared/sh/parameter_expansion
-    hl simple_expansion ref shared/sh/simple_expansion
-    hl command_substitution ref shared/sh/command_substitution
-    pop
+        push double_string region "%{$unescaped\K\"}" "%{$unescaped\"}" regions
+            hl fill default-region fill string
+            expansion
+        pop
 
-    hl single_string region "%{$unescaped\K'}" "%{'}" fill string
-    hl comment region "$unescaped(?:^|\h)\K#" '$' fill comment
-    hl heredoc region -match-capture '<<-?\h*''?(\w+)''?' '^\t*(\w+)$' ref sh/double_string
-
+        hl single_string region "%{$unescaped\K'}" "%{'}" fill string
+        hl comment region "$unescaped(?:^|\h)\K#" '$' fill comment
+        hl heredoc region -match-capture '<<-?\h*''?(\w+)''?' '^\t*(\w+)$' ref sh/double_string
     pop
 
     # Add keywords and builtins to the static completion list
-    printf %s\n "declare-option str-list sh_static_words $keywords $builtins"
+    printf %s\n "declare-option str-list sh_static_words $(join ' ' $keywords) $(join ' ' $builtins)"
 ]
 # Commands
 # ‾‾‾‾‾‾‾‾

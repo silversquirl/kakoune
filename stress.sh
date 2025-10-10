@@ -27,6 +27,8 @@ ${a#${b}/c}
 "${a#$b}"
 "${a#${b}/c}"
 
+echo hi
+
 "$(echo hi)"
 "$((a + b))"
 "$(echo 'hello ${f}' >/dev/null)"
@@ -38,6 +40,7 @@ ${a#${b}/c}
 {
 >
 <
+
 
 declare -A colors icons # provided by ./bash.nix
 
