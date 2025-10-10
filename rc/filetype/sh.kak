@@ -20,19 +20,27 @@ hook -group sh-highlight global WinSetOption filetype=sh %{
 # using non-ascii characters here so that we can use the '[' command
 provide-module sh %§
 
-add-highlighter shared/sh regions
-add-highlighter shared/sh/code default-region group
-add-highlighter shared/sh/arithmetic region -recurse \(.*?\( \(\( \)\) regions
-add-highlighter shared/sh/double_string region %{(?<!\\)(?:\\\\)*\K"} %{(?<!\\)(?:\\\\)*"} regions
-add-highlighter shared/sh/single_string region %{(?<!\\)(?:\\\\)*\K'} %{'} fill string
-add-highlighter shared/sh/parameter_expansion region -recurse (?<!\\)(?:\\\\)*\K\$\{ (?<!\\)(?:\\\\)*\K\$\{ \} regions
-add-highlighter shared/sh/simple_expansion region (?<!\\)(?:\\\\)*\K\$(\w+|[#@?$!*-]) \b fill value # TODO this is kinda gross
-add-highlighter shared/sh/command_substitution region -recurse (?<!\\)(?:\\\\)*\K\( (?<!\\)(?:\\\\)*\K\$\( \) ref shared/sh
-add-highlighter shared/sh/comment region (?<!\\)(?:\\\\)*(?:^|\h)\K# '$' fill comment
-add-highlighter shared/sh/heredoc region -match-capture '<<-?\h*''?(\w+)''?' '^\t*(\w+)$' fill string
+evaluate-commands %sh[
+    # Helper functions
+    join() { sep=$2; eval set -- $1; IFS="$sep"; echo "$*"; }
 
-evaluate-commands %sh{
+    parent=shared
+    hl() {
+        name="$1"
+        shift
+        printf 'add-highlighter %s/%s %s\n' "$parent" "$name" "$*"
+    }
+    push() {
+        hl "$@"
+        parent="$parent/$1"
+    }
+    pop() {
+        parent="${parent%/*}"
+    }
+
     # Grammar
+    unescaped='(?<!\\)(?:\\\\)*'
+
     # Generated with `compgen -k` in bash
     keywords="if then else elif fi case esac for select while until do done in
              function time coproc"
@@ -45,35 +53,50 @@ evaluate-commands %sh{
              readonly return set shift shopt source suspend test times trap
              true type typeset ulimit umask unalias unset wait"
 
-    join() { sep=$2; eval set -- $1; IFS="$sep"; echo "$*"; }
+    expansion() {
+        hl simple_expansion region "$unescaped\K\\\$(\w+|[#@?\$!*-])" '\b' fill value # TODO this is kinda gross
+        hl command_substitution region -recurse "$unescaped\K\(" "$unescaped\K\\\$\(" '\)' ref shared/sh
 
-    # Add the language's grammar to the static completion list
-    printf %s\\n "declare-option str-list sh_static_words $(join "${keywords}" ' ') $(join "${builtins}" ' ')"
+        push parameter_expansion region -recurse "$unescaped\K\\\$\{" "$unescaped\K\\\$\{" '\}' regions
+        hl default default-region fill value
+        pop
+    }
 
-    # Highlight keywords
-    printf %s\\n "add-highlighter shared/sh/code/ regex (?<!-)\b($(join "${keywords}" '|'))\b(?!-) 0:keyword"
+    push sh regions
 
-    # Highlight builtins
-    printf %s "add-highlighter shared/sh/code/builtin regex (?<!-)\b($(join "${builtins}" '|'))\b(?!-) 0:builtin"
-}
+    push code default-region group
+    hl operators regex '[[\](){}<>&|!*]' 0:operator
+    hl variable regex '((?<![-:])\b\w+)=' 1:variable
+    hl alias regex '\balias(\h+[-+]\w)*\h+([\w-.]+)=' 2:variable
+    hl function regex '^\h*(\S+(?<!=))\h*\(\)' 1:function
+    hl keywords regex "(?<!-)\b($(join "${keywords}" '|'))\b(?!-)" 0:keyword
+    hl builtins regex "(?<!-)\b($(join "${builtins}" '|'))\b(?!-)" 0:builtin
+    pop
 
-add-highlighter shared/sh/code/operators regex [[\](){}<>&|!*] 0:operator
-add-highlighter shared/sh/code/variable regex ((?<![-:])\b\w+)= 1:variable
-add-highlighter shared/sh/code/alias regex \balias(\h+[-+]\w)*\h+([\w-.]+)= 2:variable
-add-highlighter shared/sh/code/function regex ^\h*(\S+(?<!=))\h*\(\) 1:function
+    push arithmetic region -recurse '\(.*?\(' '\(\(' '\)\)' regions
+    hl parameter_expansion ref expansion
+    hl simple_expansion ref sh/simple_expansion
+    push default default-region group
+    hl operators regex '[-+!*/=]' 0:operator
+    pop default
+    pop
 
-add-highlighter shared/sh/arithmetic/parameter_expansion ref expansion
-add-highlighter shared/sh/arithmetic/simple_expansion ref sh/simple_expansion
-add-highlighter shared/sh/arithmetic/default default-region group
-add-highlighter shared/sh/arithmetic/default/operators regex [-+!*/=] 0:operator
+    push double_string region "%{$unescaped\K\"}" "%{$unescaped\"}" regions
+    hl fill default-region fill string
+    hl parameter_expansion ref shared/sh/parameter_expansion
+    hl simple_expansion ref shared/sh/simple_expansion
+    hl command_substitution ref shared/sh/command_substitution
+    pop
 
-add-highlighter shared/sh/double_string/fill default-region fill string
-add-highlighter shared/sh/double_string/parameter_expansion ref shared/sh/parameter_expansion
-add-highlighter shared/sh/double_string/simple_expansion ref shared/sh/simple_expansion
-add-highlighter shared/sh/double_string/command_substitution ref shared/sh/command_substitution
+    hl single_string region "%{$unescaped\K'}" "%{'}" fill string
+    hl comment region "$unescaped(?:^|\h)\K#" '$' fill comment
+    hl heredoc region -match-capture '<<-?\h*''?(\w+)''?' '^\t*(\w+)$' ref sh/double_string
 
-add-highlighter shared/sh/parameter_expansion/default default-region fill value
+    pop
 
+    # Add keywords and builtins to the static completion list
+    printf %s\n "declare-option str-list sh_static_words $keywords $builtins"
+]
 # Commands
 # ‾‾‾‾‾‾‾‾
 

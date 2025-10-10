@@ -2,6 +2,7 @@ $hello
 $ hello
 $@
 ${hi}
+"hello"
 
 if true; then
 fi
