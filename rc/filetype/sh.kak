@@ -61,9 +61,13 @@ evaluate-commands %sh[
         param_begin="$unescaped\K\\\$\{"
         push parameter_expansion region -recurse "$param_begin" "$param_begin" '\}' regions
             push default default-region group
-                hl delimiters regex "$param_begin|\\}" 0:value
-                hl var regex "$varname" 0:value
-                hl operator regex '[#%/!]' 0:operator
+                hl fill fill value
+                hl indirect regex "$param_begin(!)" 1:operator
+            pop
+            push trim region '[#%]' '\}\z' group
+                hl fill fill string
+                hl regex '\A.' 0:operator
+                hl regex '\}\z' 0:value
             pop
             # hl operators regex '[#%/!]' 0:operator
         pop
