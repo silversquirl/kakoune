@@ -34,14 +34,16 @@ void CommandManager::register_command(String command_name,
                                       ParameterDesc param_desc,
                                       CommandFlags flags,
                                       CommandHelper helper,
-                                      CommandCompleter completer)
+                                      CommandCompleter completer,
+                                      String source)
 {
     m_commands[command_name] = { std::move(func),
                                  std::move(docstring),
                                  std::move(param_desc),
                                  flags,
                                  std::move(helper),
-                                 std::move(completer) };
+                                 std::move(completer),
+                                 std::move(source) };
 }
 
 void CommandManager::set_command_completer(StringView command_name, CommandCompleter completer)
@@ -889,6 +891,35 @@ Completions CommandManager::NestedCompleter::operator()(
     return m_command_completer
         ? m_command_completer(context, params.subrange(1), token_to_complete-1, pos_in_token)
         : Completions{};
+}
+
+Vector<String> CommandManager::dump_commands()
+{
+    Vector<String> info{};
+    for (auto& item : m_commands)
+    {
+        auto& cmd = item.value;
+
+        String flags{};
+        if (cmd.flags & CommandFlags::Hidden)
+            flags += " -hidden";
+        if (not cmd.docstring.empty())
+            flags += format(" -docstring {}", quote(cmd.docstring));
+        switch (cmd.param_desc.max_positionals)
+        {
+        case 0:
+            break;
+        case (size_t)-1:
+            flags += format(" -params {}..", cmd.param_desc.min_positionals);
+            break;
+        default:
+            flags += format(" -params {}..{}", cmd.param_desc.min_positionals, cmd.param_desc.max_positionals);
+            break;
+        }
+
+        info.push_back(format("{}{} {}", item.key, flags, quote(cmd.source)));
+    }
+    return info;
 }
 
 UnitTest test_command_parsing{[]

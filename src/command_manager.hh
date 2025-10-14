@@ -99,7 +99,8 @@ public:
                           ParameterDesc param_desc,
                           CommandFlags flags = CommandFlags::None,
                           CommandHelper helper = CommandHelper(),
-                          CommandCompleter completer = CommandCompleter());
+                          CommandCompleter completer = CommandCompleter(),
+                          String source = "<builtin>");
 
     void set_command_completer(StringView command_name, CommandCompleter completer);
 
@@ -134,6 +135,8 @@ public:
         CommandCompleter m_command_completer;
     };
 
+    Vector<String> dump_commands();
+
 private:
     struct Command
     {
@@ -143,6 +146,7 @@ private:
         CommandFlags flags;
         CommandHelper helper;
         CommandCompleter completer;
+        String source;
     };
     using CommandMap = HashMap<String, Command, MemoryDomain::Commands>;
     CommandMap m_commands;
