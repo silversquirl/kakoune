@@ -1615,7 +1615,8 @@ const CommandDesc debug_cmd = {
     make_completer(
         [](const Context& context, StringView prefix, ByteCount cursor_pos) -> Completions {
                auto c = {"info", "buffers", "options", "memory", "shared-strings",
-                         "profile-hash-maps", "faces", "mappings", "regex", "registers"};
+                         "profile-hash-maps", "faces", "mappings", "regex", "registers",
+                         "hooks"};
                return { 0_byte, cursor_pos, complete(prefix, cursor_pos, c), Completions::Flags::Menu };
     }),
     [](const ParametersParser& parser, Context& context, const ShellContext&)
@@ -1727,6 +1728,12 @@ const CommandDesc debug_cmd = {
                 write_to_debug_buffer(format(" * {} = {}\n", name,
                     join(content | transform(quote), "\n     = ")));
             }
+        }
+        else if (parser[0] == "hooks")
+        {
+            write_to_debug_buffer("Hooks:");
+            for (auto hook : context.hooks().dump_hooks())
+                write_to_debug_buffer(format(" * {}", hook));
         }
         else
             throw runtime_error(format("no such debug command: '{}'", parser[0]));

@@ -171,4 +171,28 @@ void HookManager::run_hook(Hook hook, StringView param, Context& context)
                    hook_name, param), context.faces()["Error"] });
 }
 
+Vector<String> HookManager::dump_hooks()
+{
+    Vector<String> info;
+    for (auto desc : enum_desc(Meta::Type<Hook>{}))
+    {
+        for (const HookManager* manager = this; manager; manager = manager->m_parent.get())
+        {
+            for (auto& hook : manager->m_hooks[to_underlying(desc.value)])
+            {
+                String flags{};
+                if (not hook->group.empty())
+                    flags += format(" -group {}", hook->group);
+                if (hook->flags & HookFlags::Always)
+                    flags += " -always";
+                if (hook->flags & HookFlags::Once)
+                    flags += " -once";
+
+                info.push_back(format("{} {} {}{}", desc.name, quote(hook->filter.str()), quote(hook->commands), flags));
+            }
+        }
+    }
+    return info;
+}
+
 }

@@ -131,6 +131,7 @@ public:
     void remove_hooks(const Regex& regex);
     CandidateList complete_hook_group(StringView prefix, ByteCount pos_in_token);
     void run_hook(Hook hook, StringView param, Context& context);
+    Vector<String> dump_hooks();
 
 private:
     struct HookData;
