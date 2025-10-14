@@ -282,7 +282,7 @@ private:
         kak_assert(matches.size() % m_faces.size() == 0);
         for (auto&& match : RegexIterator{get_iterator(buffer, range.begin),
                                           get_iterator(buffer, range.end),
-                                          buffer.begin(), buffer.end(), m_regex,
+                                          m_regex,
                                           match_flags(is_bol(range.begin),
                                                       is_eol(buffer, range.end),
                                                       is_bow(buffer, range.begin),
@@ -2216,9 +2216,12 @@ private:
                                    [](const auto& lhs, const auto& rhs) { return lhs.line < rhs.line; });
         }
 
-        void add(LineRange range)
+        void add(BufferRange range, LineRange lines)
         {
-            for (auto line = range.begin; line < range.end; ++line)
+            auto subject_begin = &m_buffer.byte_at(m_buffer.clamp(range.begin));
+            auto subject_end = &m_buffer.byte_at(m_buffer.clamp(range.end));
+
+            for (auto line = lines.begin; line < lines.end; ++line)
             {
                 const StringView l = m_buffer[line];
                 const auto flags = RegexExecFlags::NotEndOfLine; // buffer line already ends with \n
@@ -2227,7 +2230,7 @@ private:
                 {
                     auto extra_flags = RegexExecFlags::None;
                     auto pos = l.begin();
-                    while (vm.exec(pos, l.end(), l.begin(), l.end(), flags | extra_flags))
+                    while (vm.exec(pos, l.end(), subject_begin, subject_end, flags | extra_flags))
                     {
                         ConstArrayView<const char*> captures = vm.captures();
                         const bool with_capture = regex.mark_count() > 0 and captures[2] != nullptr and
@@ -2294,8 +2297,10 @@ private:
         }
     }
 
-    bool update_matches(Cache& cache, const Buffer& buffer, LineRange range)
+    bool update_matches(Cache& cache, const Buffer& buffer, BufferRange range)
     {
+        LineRange lines = {range.begin.line, std::min(buffer.line_count(), range.end.line + 1)};
+
         const size_t buffer_timestamp = buffer.timestamp();
         if (cache.buffer_timestamp == 0 or
             cache.regions_timestamp != m_regions_timestamp)
@@ -2309,8 +2314,8 @@ private:
                 add_regex(region->m_recurse, region->match_capture());
             }
 
-            MatchAdder{*this, buffer, cache}.add(range);
-            cache.ranges.reset(range);
+            MatchAdder{*this, buffer, cache}.add(range, lines);
+            cache.ranges.reset(lines);
             cache.buffer_timestamp = buffer_timestamp;
             cache.regions_timestamp = m_regions_timestamp;
             return true;
@@ -2328,10 +2333,10 @@ private:
             }
 
             MatchAdder matches{*this, buffer, cache};
-            cache.ranges.add_range(range, [&](const LineRange& range) {
-                if (range.begin == range.end)
+            cache.ranges.add_range(lines, [&](const LineRange& lines) {
+                if (lines.begin == lines.end)
                     return;
-                matches.add(range);
+                matches.add(range, lines);
                 modified = true;
             });
             return modified;
@@ -2341,7 +2346,7 @@ private:
     const RegionList& get_regions_for_range(const Buffer& buffer, BufferRange range)
     {
         Cache& cache = m_cache.get(buffer);
-        if (update_matches(cache, buffer, {range.begin.line, std::min(buffer.line_count(), range.end.line + 1)}))
+        if (update_matches(cache, buffer, range))
             cache.regions.clear();
 
         auto it = cache.regions.find(range);
