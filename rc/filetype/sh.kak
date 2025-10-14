@@ -54,12 +54,18 @@ evaluate-commands %sh[
              true type typeset ulimit umask unalias unset wait"
 
     expansion() {
-        hl simple_expansion region "$unescaped\K\\\$(\w+|[#@?\$!*-])" '\b' fill value # TODO this is kinda gross
+        varname='(?:\w+|[#@?\$!*-])'
+        hl simple_expansion region "$unescaped\K\\\$$varname" '\b' fill value # TODO this is kinda gross
         hl command_substitution region -recurse "$unescaped\K\(" "$unescaped\K\\\$\(" '\)' ref sh
 
-        push parameter_expansion region -recurse "$unescaped\K\\\$\{" "$unescaped\K\\\$\{" '\}' regions
-        hl default default-region fill value
-        hl operators regex '[#%/!]' 0:operator
+        param_begin="$unescaped\K\\\$\{"
+        push parameter_expansion region -recurse "$param_begin" "$param_begin" '\}' regions
+            push default default-region group
+                hl delimiters regex "$param_begin|\\}" 0:value
+                hl var regex "$varname" 0:value
+                hl operator regex '[#%/!]' 0:operator
+            pop
+            # hl operators regex '[#%/!]' 0:operator
         pop
     }
 

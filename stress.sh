@@ -1,7 +1,7 @@
 $hello
 $ hello
 $@
-${hi}
+    ${hi}
 "hello"
 
 if true; then
