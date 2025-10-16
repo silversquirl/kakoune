@@ -56,7 +56,10 @@ public:
     DisplayCoord dimensions() override;
     void set_on_key(OnKeyCallback callback) override;
     void set_on_paste(OnPasteCallback callback) override;
+    void set_on_clipboard(OnPasteCallback callback) override;
     void set_ui_options(const Options& options) override;
+
+    void clipboard_update(StringView content) override;
 
     static void setup_terminal();
     static void restore_terminal();
@@ -141,6 +144,25 @@ private:
     OnPasteCallback m_on_paste;
     Optional<String> m_paste_buffer;
 
+    void clipboard_query();
+
+    bool m_clipboard_queried = false;
+    Optional<String> m_clipboard_buffer;
+    OnPasteCallback m_on_clipboard;
+
+    struct DetectableFeature
+    {
+        bool queried : 1;
+        bool supported : 1;
+        bool set : 1;
+        bool requested : 1;
+
+        explicit operator bool() const { return set ? requested : supported; }
+    };
+
+    DetectableFeature m_clipboard{};
+    DetectableFeature m_synchronized{};
+
     bool m_status_on_top = false;
     ConstArrayView<StringView> m_assistant;
 
@@ -155,16 +177,6 @@ private:
 
     bool m_set_title = true;
     Optional<String> m_title;
-
-    struct Synchronized
-    {
-        bool queried : 1;
-        bool supported : 1;
-        bool set : 1;
-        bool requested : 1;
-
-        explicit operator bool() const { return set ? requested : supported; }
-    } m_synchronized{};
 
     Codepoint m_padding_char = '~';
     bool m_padding_fill = false;

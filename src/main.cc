@@ -376,6 +376,17 @@ void register_registers()
             return res;
         }));
 
+    register_manager.add_register('\'', make_dyn_reg(
+        "'",
+        [](const Context& context)
+        { return StringList{{context.client().clipboard()}}; },
+        [](Context& context, ConstArrayView<String> values)
+        {
+            if (values.empty())
+                return;
+            context.client().set_clipboard(values.front());
+        }));
+
     for (size_t i = 0; i < 10; ++i)
     {
         register_manager.add_register('0'+i, make_dyn_reg(
@@ -585,7 +596,9 @@ UniquePtr<UserInterface> make_ui(UIType ui_type)
         void refresh(bool) override {}
         void set_on_key(OnKeyCallback) override {}
         void set_on_paste(OnPasteCallback) override {}
+        void set_on_clipboard(OnPasteCallback) override {}
         void set_ui_options(const Options&) override {}
+        void clipboard_update(StringView) override {}
     };
 
     switch (ui_type)

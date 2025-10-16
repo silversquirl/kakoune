@@ -44,6 +44,7 @@ enum class MessageType : uint8_t
     Exit,
     Key,
     Paste,
+    ClipboardUpdate,
 };
 
 class MsgWriter
@@ -417,6 +418,11 @@ public:
     void set_on_paste(OnPasteCallback callback) override
     { m_on_paste = std::move(callback); }
 
+    void set_on_clipboard(OnPasteCallback callback) override
+    { m_on_clipboard = std::move(callback); }
+
+    void clipboard_update(StringView content) override;
+
     void set_ui_options(const Options& options) override;
 
     void exit(int status);
@@ -435,6 +441,7 @@ private:
     DisplayCoord  m_dimensions;
     OnKeyCallback m_on_key;
     OnPasteCallback m_on_paste;
+    OnPasteCallback m_on_clipboard;
     RemoteBuffer  m_send_buffer;
 };
 
@@ -590,6 +597,12 @@ void RemoteUI::set_ui_options(const Options& options)
     send_message(MessageType::SetOptions, options);
 }
 
+void RemoteUI::clipboard_update(StringView content)
+{
+    send_message(MessageType::ClipboardUpdate, content);
+}
+
+
 void RemoteUI::exit(int status)
 {
     send_message(MessageType::Exit, status);
@@ -678,6 +691,11 @@ RemoteClient::RemoteClient(StringView session, StringView name, UniquePtr<UserIn
         msg.write(content);
         m_socket_watcher->events() |= FdEvents::Write;
      });
+    m_ui->set_on_clipboard([this](StringView content) {
+        MsgWriter msg(m_send_buffer, MessageType::ClipboardUpdate);
+        msg.write(content);
+        m_socket_watcher->events() |= FdEvents::Write;
+    });
 
     m_socket_watcher.reset(new FDWatcher{sock, FdEvents::Read | FdEvents::Write, EventMode::Urgent,
                            [this, reader = MsgReader{}](FDWatcher& watcher, FdEvents events, EventMode) mutable {
@@ -736,6 +754,9 @@ RemoteClient::RemoteClient(StringView session, StringView name, UniquePtr<UserIn
                 break;
             case MessageType::SetOptions:
                 exec(&UserInterface::set_ui_options);
+                break;
+            case MessageType::ClipboardUpdate:
+                exec(&UserInterface::clipboard_update);
                 break;
             case MessageType::Exit:
                 m_exit_status = reader.read<int>();

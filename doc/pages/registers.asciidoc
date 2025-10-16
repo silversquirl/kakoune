@@ -59,20 +59,27 @@ All normal-mode commands using a register default to a specific one if not speci
 
 == Special registers
 
-Some registers are not general purposes, they cannot be written to, but they
-contain some special data
+Some registers are not general purpose, they contain some special data and
+may have special effects when written to.
 
 *%* (percent)::
+    _read-only_ +
     current buffer name
 
 *.* (dot)::
+    _read-only_ +
     current selection contents
 
 *#* (hash)::
+    _read-only_ +
     selection indices (first selection has 1, second has 2, ...)
 
 *_* (underscore)::
     null register, always empty
+
+*'* (quote)::
+    system clipboard register, only synchronized if the `terminal_clipboard`
+    UI option is enabled (see <<options#ui-options, `:doc options ui-options`>>).
 
 *:* (colon)::
     prompt history register holding the last 100 commands entered at the

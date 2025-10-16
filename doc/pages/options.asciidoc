@@ -343,6 +343,7 @@ are exclusively available to built-in options.
 
     The default value is '%val{bufname} %val{cursor_line}:%val{cursor_char_column} {{context_info}} {{mode_info}} - %val{client}@[%val{session}]'
 
+[[ui-options]]
 *ui_options* `str-to-str-map`::
     a list of `key=value` pairs that are forwarded to the user
     interface implementation. The Terminal UI supports the following options:
@@ -382,7 +383,7 @@ are exclusively available to built-in options.
         *terminal_synchronized*:::
             if *yes* or *true*, emit synchronized output escape sequences and
             reduce terminal output with sequences that could trigger flickering
-            if unsynchronized (defaults to *false*)
+            if unsynchronized (defaults to auto-detection)
 
         *terminal_info_max_width*:::
             set the maximum allowable width of an info box. set to zero for
@@ -391,6 +392,10 @@ are exclusively available to built-in options.
         *terminal_cursor_native*:::
             if *yes* or *true*, use native terminal cursor visibility control
             instead of Kakoune's cursor management (defaults to *false*)
+
+        *terminal_clipboard*:::
+            if *yes* or *true*, use the OSC 52 escape code to synchronize the
+            system clipboard with the *'* register (defaults to auto-detection)
 
 [[startup-info]]
 *startup_info_version* `int`::

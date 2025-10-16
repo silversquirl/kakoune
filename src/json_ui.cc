@@ -203,6 +203,11 @@ void JsonUI::set_ui_options(const Options& options)
     rpc_call("set_ui_options", options);
 }
 
+void JsonUI::clipboard_update(StringView content)
+{
+    rpc_call("clipboard_update", content);
+}
+
 DisplayCoord JsonUI::dimensions()
 {
     return m_dimensions;
@@ -216,6 +221,11 @@ void JsonUI::set_on_key(OnKeyCallback callback)
 void JsonUI::set_on_paste(OnPasteCallback callback)
 {
     m_on_paste = std::move(callback);
+}
+
+void JsonUI::set_on_clipboard(OnPasteCallback callback)
+{
+    m_on_clipboard = std::move(callback);
 }
 
 void JsonUI::eval_json(const Value& json)
@@ -311,6 +321,15 @@ void JsonUI::eval_json(const Value& json)
         DisplayCoord dim{params[0].as<int>(), params[1].as<int>()};
         m_dimensions = dim;
         m_on_key(resize(dim));
+    }
+    else if (method == "clipboard_update")
+    {
+        if (params.size() != 1)
+            throw invalid_rpc_request("clipboard_update needs the clipboard contents");
+        else if (not params[0].is_a<String>())
+            throw invalid_rpc_request("clipboard contents is not a string");
+
+        m_on_clipboard(params[0].as<String>());
     }
     else
         throw invalid_rpc_request(format("unknown method: {}", method));

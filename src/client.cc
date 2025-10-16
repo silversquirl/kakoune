@@ -12,6 +12,7 @@
 #include "event_manager.hh"
 #include "shell_manager.hh"
 #include "command_manager.hh"
+#include "register_manager.hh"
 #include "user_interface.hh"
 #include "window.hh"
 #include "hash_map.hh"
@@ -70,6 +71,14 @@ Client::Client(UniquePtr<UserInterface>&& ui,
     });
     m_ui->set_on_paste([this](StringView content) {
         context().input_handler().paste(content);
+    });
+    m_ui->set_on_clipboard([this](StringView content) {
+        if (m_clipboard != content)
+        {
+            m_clipboard = content.str();
+            if (not RegisterManager::instance()['\''].modified_hook_disabled())
+                context().hooks().run_hook(Hook::RegisterModified, "'", context());
+        }
     });
 
     m_window->hooks().run_hook(Hook::WinDisplay, m_window->buffer().name(), context());
@@ -436,6 +445,13 @@ StringView Client::get_env_var(StringView name) const
     if (it == m_env_vars.end())
         return {};
     return it->value;
+}
+
+void Client::set_clipboard(String value) {
+    m_clipboard = value;
+    m_ui->clipboard_update(value);
+    if (not RegisterManager::instance()['\''].modified_hook_disabled())
+        context().hooks().run_hook(Hook::RegisterModified, "'", context());
 }
 
 void Client::on_option_changed(const Option& option)
