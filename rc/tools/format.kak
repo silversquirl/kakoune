@@ -16,12 +16,12 @@ define-command format-selections -docstring "Format the selections individually"
     }
     evaluate-commands -draft -no-hooks -save-regs 'e|' %{
         set-register e nop
-        set-register '|' %{
+        set-register '|' %exp{
             format_in="$(mktemp "${TMPDIR:-/tmp}"/kak-formatter.XXXXXX)"
             format_out="$(mktemp "${TMPDIR:-/tmp}"/kak-formatter.XXXXXX)"
 
             cat > "$format_in"
-            eval "$kak_opt_formatcmd" < "$format_in" > "$format_out"
+            (%opt{formatcmd}) < "$format_in" > "$format_out"
             if [ $? -eq 0 ]; then
                 cat "$format_out"
             else

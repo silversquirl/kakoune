@@ -1450,7 +1450,7 @@ void define_command(const ParametersParser& parser, Context& context, const Shel
         throw runtime_error("menu switch requires a completion switch");
     auto docstring = trim_indent(parser.get_switch("docstring").value_or(StringView{}));
 
-    cm.register_command(cmd_name, cmd, docstring, desc, flags, CommandHelper{}, std::move(completer));
+    cm.register_command(cmd_name, cmd, docstring, desc, flags, CommandHelper{}, std::move(completer), commands);
 }
 
 const CommandDesc define_command_cmd = {
@@ -1621,7 +1621,8 @@ const CommandDesc debug_cmd = {
     make_completer(
         [](const Context& context, StringView prefix, ByteCount cursor_pos) -> Completions {
                auto c = {"info", "buffers", "options", "memory", "shared-strings",
-                         "profile-hash-maps", "faces", "mappings", "regex", "registers"};
+                         "profile-hash-maps", "faces", "mappings", "regex", "registers",
+                         "hooks", "commands"};
                return { 0_byte, cursor_pos, complete(prefix, cursor_pos, c), Completions::Flags::Menu };
     }),
     [](const ParametersParser& parser, Context& context, const ShellContext&)
@@ -1733,6 +1734,18 @@ const CommandDesc debug_cmd = {
                 write_to_debug_buffer(format(" * {} = {}\n", name,
                     join(content | transform(quote), "\n     = ")));
             }
+        }
+        else if (parser[0] == "hooks")
+        {
+            write_to_debug_buffer("Hooks:");
+            for (auto hook : context.hooks().dump_hooks())
+                write_to_debug_buffer(format(" * {}", hook));
+        }
+        else if (parser[0] == "commands")
+        {
+            write_to_debug_buffer("Commands:");
+            for (auto cmd : CommandManager::instance().dump_commands())
+                write_to_debug_buffer(format(" * {}", cmd));
         }
         else
             throw runtime_error(format("no such debug command: '{}'", parser[0]));

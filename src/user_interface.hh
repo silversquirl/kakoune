@@ -79,9 +79,12 @@ public:
 
     virtual void set_on_key(OnKeyCallback callback) = 0;
     virtual void set_on_paste(OnPasteCallback callback) = 0;
+    virtual void set_on_clipboard(OnPasteCallback callback) = 0;
 
     using Options = HashMap<String, String, MemoryDomain::Options>;
     virtual void set_ui_options(const Options& options) = 0;
+
+    virtual void clipboard_update(StringView content) = 0;
 };
 
 }
